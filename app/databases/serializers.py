@@ -13,7 +13,7 @@ class SensorRecordRead(BaseModel):
     sensor_id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class SensorCreate(BaseModel):
     name: constr(min_length=1)
@@ -26,4 +26,4 @@ class SensorRead(BaseModel):
     records: List[SensorRecordRead] = []
 
     class Config:
-        orm_mode = True
+        from_attributes = True

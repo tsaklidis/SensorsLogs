@@ -21,8 +21,8 @@ class EnvSettings(BaseSettings):
     # Postgres
     POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "postgres")
     POSTGRES_PORT: int = int(os.getenv("POSTGRES_PORT", 5432))
-    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "miniurl")
-    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "miniurluser")
+    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "sensors_db")
+    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "sensorsuser")
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "strongpassword")
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
@@ -38,7 +38,7 @@ class EnvSettings(BaseSettings):
     LOG_LEVEL : int = int(os.getenv("LOG_LEVEL", 30))
     SQL_LOG_LEVEL : int = int(os.getenv("SQL_LOG_LEVEL", 30))
 
-    DB_NAME: str = os.getenv("DB_NAME", "miniurl.db")
+    DB_NAME: str = os.getenv("DB_NAME", "sensors_db.db")
     APP_API_TOKEN: str = os.getenv("APP_API_TOKEN", secrets.token_urlsafe(32))
     ADMIN_URL: str = os.getenv("ADMIN_URL", secrets.token_urlsafe(32))
 
