@@ -7,10 +7,8 @@ class SensorRecordCreate(BaseModel):
     sensor_id: int
 
 class SensorRecordRead(BaseModel):
-    id: int
     value: float
     created_at: datetime
-    sensor_id: int
 
     class Config:
         from_attributes = True
