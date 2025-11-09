@@ -1,9 +1,7 @@
 import logging
 
-from sqlalchemy import Sequence
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
-from sqlalchemy.orm import Seq
 
 from app.databases.manager import DatabaseManager
 from app.databases.models import Sensor, SensorRecord

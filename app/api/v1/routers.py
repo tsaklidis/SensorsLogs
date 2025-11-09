@@ -6,7 +6,7 @@ from fastapi.params import Depends
 
 from app.api.deps import valid_sensor
 from app.core.rate_limit import rate_limit_response, limiter
-from app.databases.crud import get_records_by_sensor_id
+from app.databases.crud import CrudService
 from app.databases.models import Sensor
 
 from app.databases.serializers import SensorRecordCreate, SensorRecordRead
@@ -30,5 +30,6 @@ async def list_records(
         background_tasks: BackgroundTasks,
         sensor: Sensor = Depends(valid_sensor)
 ):
-    records = await get_records_by_sensor_id(sensor.id)
+    crud = CrudService()
+    records = crud.get_records_by_sensor_id(sensor.id)
     return records
