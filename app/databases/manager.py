@@ -1,4 +1,6 @@
 import logging
+
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlmodel import create_engine, Session
 
 
@@ -28,5 +30,3 @@ class DatabaseManager:
     def get_session(cls):
         engine = cls.get_db_instance()
         return Session(engine)
-
-
