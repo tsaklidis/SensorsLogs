@@ -11,6 +11,7 @@ psycopg2-binary==2.9.10
 alembic==1.16.5
 sqladmin[full]
 itsdangerous
+asyncpg
 
 # Required only for tests
 pytest

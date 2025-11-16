@@ -1,32 +1,36 @@
 import logging
 
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-from sqlmodel import create_engine, Session
-
-
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-class DatabaseManager:
-    _db_instance = None
+class AsyncDatabaseManager:
+    _engine = None
+    _sessionmaker = None
 
     @classmethod
-    def get_db_instance(cls):
-        if cls._db_instance is None:
-            cls._db_instance = cls._create_db_instance()
-        return cls._db_instance
-
-    @staticmethod
-    def _create_db_instance():
-        db_url = settings.DATABASE_URL
-
-        # Create PostgreSQL engine
-        _engine = create_engine(db_url, echo=False)
-
-        return _engine
+    def get_engine(cls):
+        if cls._engine is None:
+            cls._engine = create_async_engine(
+                settings.DATABASE_URL,
+                echo=False,
+                future=True,
+            )
+        return cls._engine
 
     @classmethod
-    def get_session(cls):
-        engine = cls.get_db_instance()
-        return Session(engine)
+    def get_sessionmaker(cls):
+        if cls._sessionmaker is None:
+            cls._sessionmaker = async_sessionmaker(
+                bind=cls.get_engine(),
+                expire_on_commit=False,
+                class_=AsyncSession,
+            )
+        return cls._sessionmaker
+
+# Dependency for FastAPI
+async def get_db():
+    sessionmaker = AsyncDatabaseManager.get_sessionmaker()
+    async with sessionmaker() as session:
+        yield session

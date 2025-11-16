@@ -10,7 +10,7 @@ from app.admin.admin import SensorsAdmin, SensorRecordAdmin
 from app.api import base as api_endpoints
 from app.core.config import settings
 from app.core.rate_limit import limiter
-from app.databases.manager import DatabaseManager
+from app.databases.manager import AsyncDatabaseManager
 from app.loggers import LOGGING_CONFIG
 
 
@@ -33,8 +33,8 @@ app = FastAPI(
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.state.limiter = limiter
 
-db_manager = DatabaseManager()
-engine = db_manager.get_db_instance()
+db_manager = AsyncDatabaseManager()
+engine = db_manager.get_engine()
 admin = Admin(
     app,
     engine,

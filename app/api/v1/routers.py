@@ -7,7 +7,7 @@ from fastapi.params import Depends
 from app.api.deps import valid_sensor
 from app.core.rate_limit import rate_limit_response, limiter
 from app.databases.crud import CrudService
-from app.databases.models import Sensor
+from app.databases.manager import get_db
 
 from app.databases.serializers import SensorRecordCreate, SensorRecordRead
 
@@ -23,13 +23,12 @@ async def save_log(request: Request, item: SensorRecordCreate, background_tasks:
     return {"message": "ok"}
 
 
-@router.get("/records/{sensor_id}", response_model=List[SensorRecordRead], responses=rate_limit_response)
-@limiter.limit("30/minute")
+@router.get("/records/{sensor_id}", response_model=List[SensorRecordRead])
 async def list_records(
-        request: Request,
+        sensor_id: int,
         background_tasks: BackgroundTasks,
-        sensor: Sensor = Depends(valid_sensor)
+        session=Depends(get_db)
 ):
-    crud = CrudService()
-    records = crud.get_records_by_sensor_id(sensor.id)
+    crud = CrudService(session)
+    records = await crud.get_records_by_sensor_id(sensor_id)
     return records
