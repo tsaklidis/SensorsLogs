@@ -21,13 +21,12 @@ async def save_log(
         request: Request,
         item: SensorRecordCreate,
         background_tasks: BackgroundTasks,
-        sensor: Sensor = Depends(valid_sensor_id),        # Ensures sensor_id is valid
+        sensor: Sensor = Depends(valid_sensor_id),
         session=Depends(get_db),
 ):
     crud = CrudService(session)
     record = await crud.add_sensor_record(item)
-    # This assumes record is a SensorRecord mapped object and matches SensorRecordRead
-    return record      # Return the full record for response_model to serialize
+    return record
 
 
 @router.get("/records/{sensor_id}", response_model=List[SensorRecordRead])

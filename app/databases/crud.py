@@ -22,7 +22,7 @@ class CrudService:
 
     async def add_sensor_record(self, record_in: SensorRecordCreate) -> SensorRecord:
         # Convert Pydantic input to SQLModel ORM instance
-        record = SensorRecord(**record_in.dict())
+        record = SensorRecord(**record_in.model_dump())
         self.session.add(record)
         await self.session.commit()
         await self.session.refresh(record)
