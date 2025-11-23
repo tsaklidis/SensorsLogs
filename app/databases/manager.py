@@ -13,7 +13,7 @@ class AsyncDatabaseManager:
     def get_engine(cls):
         if cls._engine is None:
             cls._engine = create_async_engine(
-                settings.DATABASE_URL,
+                settings.DATABASE_URL_ASYNC,
                 echo=False,
                 future=True,
             )

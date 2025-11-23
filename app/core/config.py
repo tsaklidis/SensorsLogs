@@ -24,9 +24,13 @@ class EnvSettings(BaseSettings):
     POSTGRES_DB: str = os.getenv("POSTGRES_DB", "sensors_db")
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "sensorsuser")
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "strongpassword")
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL",
+    DATABASE_URL_ASYNC: str = os.getenv(
+        "DATABASE_URL_ASYNC",
         f"postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+    )
+    DATABASE_URL_SYNC: str = os.getenv(
+        "DATABASE_URL_SYNC",
+        f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
     )
 
     # CRITICAL = 50
