@@ -50,12 +50,22 @@ class SensorRecordRead(BaseModel):
         from_attributes = True
 
 class SensorCreate(BaseModel):
-    name: constr(min_length=1)
-    location: Optional[str] = None
+    name: constr(min_length=1, max_length=255)
+    location: Optional[str] = Field(None, max_length=255)
 
 class SensorRead(BaseModel):
     id: int
-    name: constr(min_length=1)
+    name: str
+    location: Optional[str] = None
+    owner_id: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+class SensorReadWithRecords(BaseModel):
+    """Sensor with all its records."""
+    id: int
+    name: str
     location: Optional[str] = None
     owner_id: Optional[int] = None
     records: List[SensorRecordRead] = []

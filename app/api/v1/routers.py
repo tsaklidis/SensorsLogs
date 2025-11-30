@@ -12,7 +12,8 @@ from app.databases.manager import get_db
 from app.databases.models import Sensor, User
 from app.databases.serializers import (
     SensorRecordCreate, SensorRecordRead,
-    UserCreate, UserRead, UserLogin, TokenResponse, TokenRefresh
+    UserCreate, UserRead, UserLogin, TokenResponse, TokenRefresh,
+    SensorCreate, SensorRead
 )
 
 logger = logging.getLogger(__name__)
@@ -145,6 +146,59 @@ async def get_current_user_info(
 ):
     """Get current authenticated user information."""
     return current_user
+
+
+# Sensor Management Endpoints
+@router.post("/sensors", response_model=SensorRead, status_code=201, responses=rate_limit_response)
+@limiter.limit("30/minute")
+async def create_sensor(
+        request: Request,
+        sensor_in: SensorCreate,
+        session: AsyncSession = Depends(get_db),
+        current_user: User = Depends(get_current_user),
+):
+    """
+    Create a new sensor.
+    The sensor is automatically assigned to the authenticated user.
+    """
+    crud = CrudService(session)
+    sensor = await crud.create_sensor(sensor_in, current_user.id)
+    return sensor
+
+
+@router.get("/sensors", response_model=List[SensorRead])
+async def list_my_sensors(
+        session: AsyncSession = Depends(get_db),
+        current_user: User = Depends(get_current_user),
+):
+    """
+    List all sensors owned by the authenticated user.
+    """
+    crud = CrudService(session)
+    sensors = await crud.get_sensors_by_user(current_user.id)
+    return sensors
+
+
+@router.delete("/sensors/{sensor_id}", status_code=204)
+async def delete_sensor(
+        sensor_id: int,
+        session: AsyncSession = Depends(get_db),
+        current_user: User = Depends(get_current_user),
+):
+    """
+    Delete a sensor.
+    Only the owner can delete their sensor.
+    """
+    crud = CrudService(session)
+    deleted = await crud.delete_sensor(sensor_id, current_user.id)
+
+    if not deleted:
+        raise HTTPException(
+            status_code=404,
+            detail="Sensor not found or you don't have permission to delete it"
+        )
+
+    return None
 
 
 # Sensor Record Endpoints

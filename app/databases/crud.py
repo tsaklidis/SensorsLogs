@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from app.databases.models import Sensor, SensorRecord, User
-from app.databases.serializers import SensorRecordCreate, UserCreate
+from app.databases.serializers import SensorRecordCreate, UserCreate, SensorCreate
 
 logger = logging.getLogger(__name__)
 
@@ -81,3 +81,33 @@ class CrudService:
         await self.session.commit()
         await self.session.refresh(record)
         return record
+
+    # Sensor CRUD operations
+    async def create_sensor(self, sensor_in: SensorCreate, user_id: int) -> Sensor:
+        """Create a new sensor owned by the user."""
+        sensor = Sensor(
+            name=sensor_in.name,
+            location=sensor_in.location,
+            owner_id=user_id
+        )
+        self.session.add(sensor)
+        await self.session.commit()
+        await self.session.refresh(sensor)
+        return sensor
+
+    async def get_sensors_by_user(self, user_id: int) -> list[Sensor]:
+        """Get all sensors owned by a user."""
+        result = await self.session.execute(
+            select(Sensor).where(Sensor.owner_id == user_id)
+        )
+        return result.scalars().all()
+
+    async def delete_sensor(self, sensor_id: int, user_id: int) -> bool:
+        """Delete a sensor if it belongs to the user. Returns True if deleted, False if not found."""
+        sensor = await self.get_sensor_by_id(sensor_id)
+        if not sensor or sensor.owner_id != user_id:
+            return False
+
+        await self.session.delete(sensor)
+        await self.session.commit()
+        return True
