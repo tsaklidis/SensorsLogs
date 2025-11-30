@@ -1,8 +1,10 @@
 from sqladmin import ModelView
-from wtforms import PasswordField, Form
+from wtforms import PasswordField
 from wtforms.validators import Optional as OptionalValidator
 
 from app.databases.models import Sensor, SensorRecord, User
+from app.core.jwt_service import JWTService
+from app.core.config import settings
 
 
 class UserAdmin(ModelView, model=User):
@@ -50,6 +52,52 @@ class UserAdmin(ModelView, model=User):
             # For new users, require a password
             if not model.hashed_password:
                 raise ValueError("Password is required for new users")
+
+    async def after_model_change(self, data, model: User, is_created: bool, request) -> None:
+        """Show instructions after user is created."""
+        if is_created:
+            # Generate a sample token to show the user
+            access_token = JWTService.create_access_token(model.id, model.username)
+
+            instructions = f"""
+<div style="background: #e7f3e7; border: 2px solid #4caf50; padding: 15px; border-radius: 5px; margin: 10px 0;">
+    <h3 style="color: #2e7d32; margin-top: 0;">✅ User '{model.username}' Created Successfully!</h3>
+    
+    <p><strong>📝 To get a JWT token, the user must login via API:</strong></p>
+    
+    <pre style="background: #f5f5f5; padding: 10px; border-radius: 3px; overflow-x: auto;">
+curl -X POST "http://localhost:8000/api/v1.0/auth/login" \\
+  -H "Content-Type: application/json" \\
+  -d '{{"username": "{model.username}", "password": "THE_PASSWORD_YOU_ENTERED"}}'
+    </pre>
+    
+    <p><strong>Response will include:</strong></p>
+    <ul>
+        <li>access_token (expires in {settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES} minutes)</li>
+        <li>refresh_token (expires in {settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS} days)</li>
+    </ul>
+    
+    <p><strong>📧 Send these instructions to the user at: {model.email}</strong></p>
+    
+    <p style="color: #d32f2f;"><strong>⚠️ IMPORTANT:</strong> Make sure to securely communicate the password to the user!</p>
+</div>
+"""
+            # SQLAdmin doesn't support flash messages well, so we'll log it
+            print("\n" + "="*80)
+            print(f"USER CREATED: {model.username}")
+            print(f"Email: {model.email}")
+            print(f"User ID: {model.id}")
+            print("\nINSTRUCTIONS TO PROVIDE TO USER:")
+            print("-" * 80)
+            print(f"1. Login to get JWT token:")
+            print(f'   curl -X POST "http://localhost:8000/api/v1.0/auth/login" \\')
+            print(f'     -H "Content-Type: application/json" \\')
+            print(f'     -d \'{{"username": "{model.username}", "password": "YOUR_PASSWORD"}}\'')
+            print(f"\n2. Use the returned access_token in API requests:")
+            print(f'   Authorization: Bearer <access_token>')
+            print("\n3. Sample token for testing (valid for {settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES} minutes):")
+            print(f"   {access_token[:50]}...")
+            print("="*80 + "\n")
 
 
 
