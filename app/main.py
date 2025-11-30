@@ -6,7 +6,7 @@ from slowapi.errors import RateLimitExceeded
 
 from sqladmin import Admin
 
-from app.admin.admin import SensorsAdmin, SensorRecordAdmin
+from app.admin.admin import SensorsAdmin, SensorRecordAdmin, UserAdmin
 from app.api import base as api_endpoints
 from app.core.config import settings
 from app.core.rate_limit import limiter
@@ -40,6 +40,7 @@ admin = Admin(
     engine,
     base_url=settings.ADMIN_URL,
 )
+admin.add_view(UserAdmin)
 admin.add_view(SensorsAdmin)
 admin.add_view(SensorRecordAdmin)
 

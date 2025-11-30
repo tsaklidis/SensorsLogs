@@ -46,4 +46,10 @@ class EnvSettings(BaseSettings):
     APP_API_TOKEN: str = os.getenv("APP_API_TOKEN", secrets.token_urlsafe(32))
     ADMIN_URL: str = os.getenv("ADMIN_URL", secrets.token_urlsafe(32))
 
+    # JWT Settings
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", secrets.token_urlsafe(32))
+    JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", 30))
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.getenv("JWT_REFRESH_TOKEN_EXPIRE_DAYS", 7))
+
 settings = EnvSettings()
