@@ -1,10 +1,7 @@
 from typing import Optional, List
-from datetime import datetime, timezone
+from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship
-from passlib.context import CryptContext
-
-# Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+import bcrypt
 
 
 class User(SQLModel, table=True):
@@ -15,8 +12,8 @@ class User(SQLModel, table=True):
     full_name: Optional[str] = Field(default=None, max_length=255)
     hashed_password: str = Field(nullable=False, max_length=255)
     is_active: bool = Field(default=True, nullable=False)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
     # Relationships
     sensors: List["Sensor"] = Relationship(back_populates="owner")
@@ -26,12 +23,21 @@ class User(SQLModel, table=True):
 
     def verify_password(self, password: str) -> bool:
         """Verify a password against the hash."""
-        return pwd_context.verify(password, self.hashed_password)
+        # Truncate password to 72 bytes for bcrypt
+        password_bytes = password.encode('utf-8')[:72]
+        # Bcrypt expects bytes for both password and hash
+        return bcrypt.checkpw(password_bytes, self.hashed_password.encode('utf-8'))
 
     @staticmethod
     def hash_password(password: str) -> str:
-        """Hash a password for storing."""
-        return pwd_context.hash(password)
+        """Hash a password for storing. Returns string hash."""
+        # Truncate password to 72 bytes for bcrypt
+        password_bytes = password.encode('utf-8')[:72]
+        # Generate salt and hash
+        salt = bcrypt.gensalt()
+        hashed = bcrypt.hashpw(password_bytes, salt)
+        # Return as string for database storage
+        return hashed.decode('utf-8')
 
 
 class Sensor(SQLModel, table=True):
@@ -51,7 +57,7 @@ class SensorRecord(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     value: float = Field(nullable=False)
     sensor_id: int = Field(foreign_key="sensor.id", index=True)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     sensor: Optional[Sensor] = Relationship(back_populates="records")
 
     def __repr__(self):

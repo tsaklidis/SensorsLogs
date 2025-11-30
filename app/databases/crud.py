@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
@@ -59,7 +59,7 @@ class CrudService:
         """Update user's last login timestamp."""
         user = await self.get_user_by_id(user_id)
         if user:
-            user.updated_at = datetime.now(timezone.utc)
+            user.updated_at = datetime.utcnow()
             await self.session.commit()
             await self.session.refresh(user)
         return user

@@ -14,7 +14,7 @@ sqladmin[full]
 itsdangerous
 asyncpg
 PyJWT==2.8.0
-passlib[bcrypt]==1.7.4
+bcrypt==4.1.2
 python-multipart
 
 # Required only for tests
