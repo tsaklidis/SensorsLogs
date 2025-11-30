@@ -21,39 +21,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Authentication Endpoints
-@router.post("/auth/register", response_model=TokenResponse, status_code=201)
-async def register(
-        user_in: UserCreate,
-        session: AsyncSession = Depends(get_db),
-):
-    """
-    Register a new user.
-    Returns JWT access and refresh tokens.
-    """
-    crud = CrudService(session)
-
-    # Check if username already exists
-    existing_user = await crud.get_user_by_username(user_in.username)
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Username already registered")
-
-    # Check if email already exists
-    existing_email = await crud.get_user_by_email(user_in.email)
-    if existing_email:
-        raise HTTPException(status_code=400, detail="Email already registered")
-
-    # Create user
-    user = await crud.create_user(user_in)
-
-    # Generate JWT tokens
-    access_token = JWTService.create_access_token(user.id, user.username)
-    refresh_token = JWTService.create_refresh_token(user.id, user.username)
-
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        expires_in=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
-    )
+# Note: Public registration is disabled for security.
+# Users must be created by administrators via the admin panel.
 
 @router.post("/auth/login", response_model=TokenResponse)
 async def login(
