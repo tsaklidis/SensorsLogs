@@ -21,6 +21,7 @@ python-multipart
 pytest
 pytest-asyncio
 pytest-cov
+pytest-xdist  # For parallel test execution
 httpx
 requests==2.32.5
 faker

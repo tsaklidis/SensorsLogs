@@ -7,6 +7,7 @@ from typing import AsyncGenerator, Generator
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import StaticPool
+import os
 
 from app.main import app
 from app.databases.models import SQLModel, User, Sensor, SensorRecord
@@ -14,14 +15,23 @@ from app.databases.manager import get_db
 from app.core.config import settings
 
 
-# Test database URL (in-memory SQLite for tests)
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+# Use separate database for each worker when running in parallel
+def get_test_db_url():
+    """Get test database URL with worker ID for parallel execution."""
+    worker_id = os.environ.get("PYTEST_XDIST_WORKER", "master")
+    return f"sqlite+aiosqlite:///:memory:?cache=shared&worker={worker_id}"
+
+
+TEST_DATABASE_URL = get_test_db_url()
 
 
 @pytest.fixture(scope="session")
 def event_loop() -> Generator:
     """Create an instance of the default event loop for the test session."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
     yield loop
     loop.close()
 
