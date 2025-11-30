@@ -87,44 +87,64 @@ async def client(test_db_session: AsyncSession) -> AsyncGenerator[AsyncClient, N
 
 
 @pytest.fixture
-async def test_user(client: AsyncClient) -> dict:
-    """Create a test user and return user data with tokens."""
-    user_data = {
-        "username": "testuser",
-        "email": "test@example.com",
-        "password": "TestPassword123!",
-        "full_name": "Test User"
-    }
+async def test_user(client: AsyncClient, test_db_session: AsyncSession) -> dict:
+    """Create a test user directly in database (simulating admin creation)."""
+    from app.databases.crud import CrudService
+    from app.databases.serializers import UserCreate
+    from app.core.jwt_service import JWTService
 
-    response = await client.post("/api/v1.0/auth/register", json=user_data)
-    assert response.status_code == 201
+    user_data = UserCreate(
+        username="testuser",
+        email="test@example.com",
+        password="TestPassword123!",
+        full_name="Test User"
+    )
 
-    tokens = response.json()
+    crud = CrudService(test_db_session)
+    user = await crud.create_user(user_data)
+
+    # Generate tokens
+    access_token = JWTService.create_access_token(user.id, user.username)
+    refresh_token = JWTService.create_refresh_token(user.id, user.username)
+
     return {
-        **user_data,
-        "access_token": tokens["access_token"],
-        "refresh_token": tokens["refresh_token"]
+        "username": user_data.username,
+        "email": user_data.email,
+        "password": user_data.password,
+        "full_name": user_data.full_name,
+        "access_token": access_token,
+        "refresh_token": refresh_token
     }
 
 
 @pytest.fixture
-async def test_user2(client: AsyncClient) -> dict:
+async def test_user2(client: AsyncClient, test_db_session: AsyncSession) -> dict:
     """Create a second test user for multi-user tests."""
-    user_data = {
-        "username": "testuser2",
-        "email": "test2@example.com",
-        "password": "TestPassword123!",
-        "full_name": "Test User 2"
-    }
+    from app.databases.crud import CrudService
+    from app.databases.serializers import UserCreate
+    from app.core.jwt_service import JWTService
 
-    response = await client.post("/api/v1.0/auth/register", json=user_data)
-    assert response.status_code == 201
+    user_data = UserCreate(
+        username="testuser2",
+        email="test2@example.com",
+        password="TestPassword123!",
+        full_name="Test User 2"
+    )
 
-    tokens = response.json()
+    crud = CrudService(test_db_session)
+    user = await crud.create_user(user_data)
+
+    # Generate tokens
+    access_token = JWTService.create_access_token(user.id, user.username)
+    refresh_token = JWTService.create_refresh_token(user.id, user.username)
+
     return {
-        **user_data,
-        "access_token": tokens["access_token"],
-        "refresh_token": tokens["refresh_token"]
+        "username": user_data.username,
+        "email": user_data.email,
+        "password": user_data.password,
+        "full_name": user_data.full_name,
+        "access_token": access_token,
+        "refresh_token": refresh_token
     }
 
 
