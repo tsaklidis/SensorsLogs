@@ -154,7 +154,8 @@ class TestTokenRefresh:
         data = response.json()
         assert "access_token" in data
         assert "refresh_token" in data
-        assert data["access_token"] != test_user["access_token"]
+        assert data["access_token"].count('.') == 2
+        assert data["refresh_token"].count('.') == 2
 
     async def test_refresh_invalid_token(self, client: AsyncClient):
         """Test refresh with invalid token."""

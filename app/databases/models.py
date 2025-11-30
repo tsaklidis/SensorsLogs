@@ -1,6 +1,7 @@
 from typing import Optional, List
 from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship
+from sqlalchemy.orm import relationship
 import bcrypt
 
 
@@ -47,7 +48,10 @@ class Sensor(SQLModel, table=True):
     owner_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
 
     # Relationships
-    records: List["SensorRecord"] = Relationship(back_populates="sensor")
+    records: List["SensorRecord"] = Relationship(
+        back_populates="sensor",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
     owner: Optional["User"] = Relationship(back_populates="sensors")
 
     def __repr__(self):

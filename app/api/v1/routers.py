@@ -202,7 +202,7 @@ async def delete_sensor(
 
 
 # Sensor Record Endpoints
-@router.post("/records", response_model=SensorRecordRead, responses=rate_limit_response)
+@router.post("/records", response_model=SensorRecordRead, status_code=201, responses=rate_limit_response)
 @limiter.limit("30/minute")
 async def save_log(
         request: Request,
