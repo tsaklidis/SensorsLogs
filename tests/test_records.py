@@ -100,7 +100,7 @@ class TestCreateRecord:
             json={"sensor_id": test_sensor["id"], "value": 23.5}
         )
 
-        assert response.status_code == 403
+        assert response.status_code == 401
 
     async def test_create_record_invalid_value_type(
         self,
@@ -233,7 +233,7 @@ class TestListRecords:
             f"/api/v1.0/records/{test_sensor['id']}"
         )
 
-        assert response.status_code == 403
+        assert response.status_code == 401
 
     async def test_list_records_chronological_order(
         self,
