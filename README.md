@@ -1,120 +1,108 @@
-# Sensors Logs API
+# Sensors API
 
-A production-ready FastAPI application for managing IoT sensor data with JWT authentication, multi-user support, and real-time monitoring.
+FastAPI application for managing IoT sensor data with JWT authentication and multi-user support.
 
-## ✨ Features
+## Features
 
-- 🔐 **JWT Authentication** - Secure token-based auth with access & refresh tokens
-- 👥 **Multi-User System** - User management with role-based sensor ownership
-- 📊 **Sensor Management** - Track multiple sensors with location metadata
-- 📝 **Data Logging** - Store and query sensor measurements with timestamps
-- ⚡ **Rate Limiting** - Protection against abuse (30 req/min per IP)
-- 🏥 **Health Monitoring** - PostgreSQL and Redis health check endpoints
-- 🐳 **Docker Ready** - Full containerization with docker-compose
-- 📚 **Interactive Docs** - Auto-generated API docs (Swagger UI & ReDoc)
-- 🔄 **Database Migrations** - Version-controlled schema with Alembic
-- 👨‍💼 **Admin Panel** - Web UI for user and data management
+- JWT-based authentication (access & refresh tokens)
+- Admin-only user creation (no public registration)
+- Multi-user system with sensor ownership
+- Sensor and data logging management
+- Rate limiting (30 req/min)
+- PostgreSQL with async SQLModel
+- Alembic migrations
+- Admin panel for user management
+- CLI tool for user operations
 
-## 🚀 Quick Start
+## Tech Stack
 
-### Prerequisites
+- **Framework**: FastAPI
+- **Database**: PostgreSQL 13+ with SQLModel
+- **Auth**: PyJWT with bcrypt password hashing
+- **Cache**: Redis (optional, for rate limiting)
+- **Migrations**: Alembic
+- **Python**: 3.12+
 
-- Python 3.12+
-- PostgreSQL 13+
-- Redis 6+ (optional, for rate limiting)
-- Docker & Docker Compose (optional)
+## Quick Start
 
-### Installation
-
-#### Option 1: Automated Setup (Recommended)
-
-```bash
-git clone <your-repo-url>
-cd sensors
-./setup.sh
-```
-
-The setup script will:
-- Install Python dependencies
-- Create `.env` from template
-- Set up database and run migrations
-- Generate JWT secret key
-- Show next steps
-
-#### Option 2: Manual Setup
-
-1. **Clone and install dependencies**
-   ```bash
-   git clone <your-repo-url>
-   cd sensors
-   pip install -r requirements.txt
-   ```
-
-2. **Configure environment**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your settings (database, JWT secret, etc.)
-   ```
-
-3. **Set up database**
-   ```bash
-   # Create PostgreSQL database
-   createdb sensors_db
-   
-   # Run migrations
-   alembic upgrade head
-   ```
-
-4. **Start the server**
-   ```bash
-   uvicorn app.main:app --reload
-   ```
-
-#### Option 3: Docker Compose
+### Docker (Recommended)
 
 ```bash
 docker-compose up -d
 ```
 
-### Verify Installation
+### Manual Setup
 
-Visit http://localhost:8000/docs to see the interactive API documentation.
+```bash
+# Install dependencies
+pip install -r requirements.txt
 
-## 📖 Documentation
+# Configure environment
+cp .env.example .env
+# Edit .env with your database credentials and JWT secret
 
-| Document | Description |
-|----------|-------------|
-| **[API Reference](docs/API_GUIDE.md)** | Complete API endpoints and usage examples |
-| **[Authentication Guide](docs/USER_GUIDE.md)** | How to get and use JWT tokens |
-| **[Developer Guide](docs/MIGRATIONS.md)** | Database migrations and development |
+# Run migrations
+alembic upgrade head
 
-## 🏗️ Architecture
+# Start server
+uvicorn app.main:app --reload
+```
+
+Access API docs at http://localhost:8000/docs
+
+## User Management
+
+Users are created by administrators only (no public registration).
+
+### Create User
+
+```bash
+# Interactive (prompts for password)
+python manage_users.py create username email@example.com
+
+# With password
+python manage_users.py create username email@example.com --password SecurePass123
+
+# List users
+python manage_users.py list
+
+# Deactivate/activate
+python manage_users.py deactivate username
+python manage_users.py activate username
+```
+
+### User Login
+
+```bash
+curl -X POST "http://localhost:8000/api/v1.0/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"username": "user", "password": "pass"}'
+```
+
+## Project Structure
 
 ```
 sensors/
 ├── app/
-│   ├── main.py              # Application entry point
-│   ├── api/
-│   │   ├── v1/routers.py   # API v1.0 endpoints
-│   │   └── deps.py          # Auth & validation dependencies
+│   ├── main.py              # Application entry
+│   ├── api/v1/routers.py    # API endpoints
 │   ├── core/
-│   │   ├── config.py        # Configuration management
-│   │   └── jwt_service.py   # JWT token operations
+│   │   ├── config.py        # Configuration
+│   │   └── jwt_service.py   # JWT operations
 │   ├── databases/
-│   │   ├── models.py        # SQLModel database models
+│   │   ├── models.py        # SQLModel models
 │   │   ├── crud.py          # Database operations
 │   │   └── serializers.py   # Pydantic schemas
-│   └── admin/
-│       └── admin.py         # Admin panel setup
-├── alembic/                 # Database migrations
-├── docs/                    # Documentation
-├── docker-compose.yml       # Docker services
-└── requirements.txt         # Python dependencies
+│   └── admin/admin.py       # Admin panel
+├── alembic/                 # Migrations
+├── tests/                   # Test suite
+├── manage_users.py          # User management CLI
+└── docker-compose.yml       # Docker setup
 ```
 
-## 🔧 Configuration
+## Configuration
 
-Key environment variables (see `.env.example` for all options):
+Key environment variables:
 
 ```bash
 # Database
@@ -123,128 +111,67 @@ POSTGRES_DB=sensors_db
 POSTGRES_USER=sensorsuser
 POSTGRES_PASSWORD=<strong-password>
 
-# JWT Authentication
-JWT_SECRET_KEY=<generate-with-secrets.token_urlsafe(32)>
+# JWT
+JWT_SECRET_KEY=<32-byte-secret>
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
 JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
 
-# Redis (Optional)
+# Redis (optional)
 REDIS_CACHE_HOST=localhost
 REDIS_CACHE_PORT=6379
 ```
 
-## 🔐 Security
+## Security
 
+- No public user registration
 - JWT tokens with configurable expiration
 - Bcrypt password hashing (cost factor 12)
-- Rate limiting (30 requests/minute)
-- SQL injection protection (ORM)
-- Input validation (Pydantic)
-- CORS protection
-- Environment-based secrets
+- Rate limiting per IP
+- SQL injection protection via ORM
+- Input validation with Pydantic
 
-**Production Checklist:**
-- [ ] Use HTTPS/TLS
-- [ ] Set strong `JWT_SECRET_KEY` (32+ bytes)
-- [ ] Use secret management service (AWS Secrets Manager, etc.)
-- [ ] Configure proper CORS origins
-- [ ] Enable monitoring and logging
-- [ ] Set up regular database backups
+### Production Checklist
 
-## 💻 Development
+- Use HTTPS/TLS
+- Set strong `JWT_SECRET_KEY` (32+ bytes)
+- Configure proper CORS origins
+- Enable monitoring and logging
+- Regular database backups
+- Use secrets management service
 
-### Running Tests
+## Development
+
+### Tests
 
 ```bash
+# Run all tests (parallel)
 pytest
-pytest --cov=app tests/
+
+# With coverage
+pytest --cov=app
+
+# Sequential (for debugging)
+pytest -n 0
 ```
 
-### Database Migrations
+### Migrations
 
 ```bash
-# Create new migration
+# Create migration
 alembic revision --autogenerate -m "description"
 
-# Apply migrations
+# Apply
 alembic upgrade head
 
 # Rollback
 alembic downgrade -1
 ```
 
-### Code Style
+## Documentation
 
-```bash
-# Format code
-black app/
+- **[API Reference](docs/API.md)** - Complete endpoint documentation
 
-# Type checking
-mypy app/
+## Author
 
-# Linting
-flake8 app/
-```
-
-## 🐳 Docker
-
-```bash
-# Build and start
-docker-compose up --build
-
-# Start in background
-docker-compose up -d
-
-# View logs
-docker-compose logs -f app
-
-# Stop
-docker-compose down
-```
-
-## 📊 Database Schema
-
-```sql
--- Users with JWT authentication
-user (id, username, email, hashed_password, is_active, created_at, updated_at)
-
--- Sensors with optional ownership
-sensor (id, name, location, owner_id → user.id)
-
--- Sensor measurements
-sensorrecord (id, value, sensor_id → sensor.id, created_at)
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
-
-## 📝 License
-
-[Your License Here]
-
-## 👤 Author
-
-**Stefanos I. Tsaklidis**  
-🌐 https://tsaklidis.gr
-
-## 🙏 Acknowledgments
-
-Built with:
-- [FastAPI](https://fastapi.tiangolo.com/) - Modern Python web framework
-- [SQLModel](https://sqlmodel.tiangolo.com/) - SQL databases with Python objects
-- [Alembic](https://alembic.sqlalchemy.org/) - Database migrations
-- [PyJWT](https://pyjwt.readthedocs.io/) - JWT tokens
-- [bcrypt](https://github.com/pyca/bcrypt) - Password hashing
-
----
-
-For detailed usage instructions, see:
-- 📘 **[API Reference](docs/API_GUIDE.md)** - How to use the API
-- 🔑 **[Authentication Guide](docs/USER_GUIDE.md)** - Getting JWT tokens
-- 🛠️ **[Developer Guide](docs/MIGRATIONS.md)** - Development setup
+Stefanos I. Tsaklidis - https://tsaklidis.gr
 
