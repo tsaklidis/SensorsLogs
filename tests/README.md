@@ -1,6 +1,6 @@
 # Tests
 
-Test suite with 44 tests covering all API endpoints.
+Test suite with 49 tests covering all API endpoints and Redis caching.
 
 ## Running Tests
 
@@ -16,6 +16,7 @@ pytest --cov=app
 
 # Specific file/test
 pytest tests/test_auth.py
+pytest tests/test_redis_caching.py
 pytest tests/test_auth.py::TestLogin::test_login_success
 ```
 
@@ -23,10 +24,11 @@ pytest tests/test_auth.py::TestLogin::test_login_success
 
 ```
 tests/
-├── conftest.py          # Fixtures and configuration
-├── test_auth.py         # Authentication (9 tests)
-├── test_sensors.py      # Sensor management (15 tests)
-└── test_records.py      # Sensor records (14 tests)
+├── conftest.py             # Fixtures and configuration
+├── test_auth.py            # Authentication (9 tests)
+├── test_sensors.py         # Sensor management (15 tests)
+├── test_records.py         # Sensor records (14 tests)
+└── test_redis_caching.py   # Redis caching (5 tests)
 ```
 
 ## Configuration
@@ -46,9 +48,9 @@ tests/
 
 ## Performance
 
-| Mode | Workers | Time |
-|------|---------|------|
-| Sequential | 1 | ~9s |
-| Parallel | 4 | ~3-5s |
+| Mode | Workers | Time | Tests |
+|------|---------|------|-------|
+| Sequential | 1 | ~10s | 49 |
+| Parallel | 4 | ~4-6s | 49 |
 
 

@@ -89,3 +89,13 @@ async def valid_sensor_id_from_path(
     if sensor is None:
         raise HTTPException(status_code=404, detail=f"Sensor with id={sensor_id} not found.")
     return sensor
+
+
+# Background task for saving sensor records to database
+async def save_record_to_db(session: AsyncSession, item: SensorRecordCreate):
+    """
+    Background task to save sensor record to database.
+    Used to defer database writes for faster response times.
+    """
+    crud = CrudService(session)
+    await crud.add_sensor_record(item)

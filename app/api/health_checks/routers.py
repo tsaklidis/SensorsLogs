@@ -4,7 +4,7 @@ from typing import Dict, Union
 from fastapi.security import APIKeyHeader
 
 from app.core.config import settings
-from app.databases.redis import redis_cache
+from app.databases.redis import get_redis_client
 from app.core.rate_limit import limiter, rate_limit_response
 
 router = APIRouter()
@@ -42,6 +42,7 @@ async def redis_health_check(request: Request) -> Dict[str, Union[bool, str]]:
         - 429: Too Many Requests (rate limit exceeded)
     """
     try:
+        redis_cache = get_redis_client()
         await redis_cache.ping()
         return {"healthy": True}
     except Exception as e:
@@ -69,6 +70,7 @@ async def redis_health_read_write_check(request: Request) -> Dict[str, Union[boo
         - 429: Too Many Requests (rate limit exceeded)
     """
     try:
+        redis_cache = get_redis_client()
         test_key = "health:check"
         test_value = "ok"
 
@@ -87,6 +89,7 @@ async def list_all_redis_data():
     Returns:
         dict: Dictionary of {key: value} for all string keys.
     """
+    redis_cache = get_redis_client()
     data = {}
     async for key in redis_cache.scan_iter():
         value = await redis_cache.get(key)

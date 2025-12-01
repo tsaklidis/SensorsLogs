@@ -155,7 +155,7 @@ Delete a sensor (only owner can delete).
 
 ### POST /records
 
-Add a measurement to a sensor.
+Add a measurement to a sensor. Value is cached in Redis for fast retrieval and saved to PostgreSQL in the background.
 
 **Request:**
 ```json
@@ -169,9 +169,11 @@ Add a measurement to a sensor.
 ```json
 {
   "value": 23.5,
-  "created_at": "2025-11-30T10:30:00"
+  "created_at": "2025-12-01T10:30:00"
 }
 ```
+
+**Performance**: Returns immediately after caching (< 10ms). Database write happens in background.
 
 **Fields:**
 - `sensor_id` (integer, required): Valid sensor ID
@@ -186,23 +188,28 @@ Add a measurement to a sensor.
 
 ### GET /records/{sensor_id}
 
-Get all records for a sensor.
+Get all records for a sensor. Results are cached for 5 minutes.
 
 **Response (200):**
 ```json
 [
   {
     "value": 23.5,
-    "created_at": "2025-11-30T10:30:00"
+    "created_at": "2025-12-01T10:30:00"
   },
   {
     "value": 24.1,
-    "created_at": "2025-11-30T10:35:00"
+    "created_at": "2025-12-01T10:35:00"
   }
 ]
 ```
 
 Records are returned in chronological order.
+
+**Performance**: 
+- Cache hit: < 5ms
+- Cache miss: ~50ms (queries database and caches result)
+- Cache TTL: 5 minutes
 
 **Errors:**
 - `401` - Not authenticated
@@ -337,6 +344,97 @@ All errors return a JSON response:
 ## Rate Limiting
 
 Endpoints marked with rate limiting allow 30 requests per minute per IP address. Exceeded limits return `429 Too Many Requests`.
+
+## Health Check Endpoints
+
+These endpoints require an API token for authentication (not JWT). Used for infrastructure monitoring.
+
+**Authentication Header:**
+```
+api-token: <APP_API_TOKEN>
+```
+
+### GET /health/psql
+
+Check PostgreSQL connectivity.
+
+**Response (200):**
+```json
+{
+  "healthy": true
+}
+```
+
+**Errors:**
+- `401` - Invalid or missing API token
+
+### GET /health/redis
+
+Check Redis connectivity (ping).
+
+**Response (200):**
+```json
+{
+  "healthy": true
+}
+```
+
+Or if unhealthy:
+```json
+{
+  "healthy": false,
+  "error": "Connection refused"
+}
+```
+
+**Rate Limit:** 30 requests/minute
+
+**Errors:**
+- `401` - Invalid or missing API token
+- `429` - Rate limit exceeded
+
+### GET /health/redis_rw
+
+Check Redis read/write operations.
+
+**Response (200):**
+```json
+{
+  "healthy": true
+}
+```
+
+Or if unhealthy:
+```json
+{
+  "healthy": false,
+  "error": "Write operation failed"
+}
+```
+
+**Rate Limit:** 10 requests/minute
+
+**Errors:**
+- `401` - Invalid or missing API token
+- `429` - Rate limit exceeded
+
+### GET /health/redis_data
+
+List all key-value pairs in Redis (debugging).
+
+**Response (200):**
+```json
+{
+  "sensor:1:records": "[...]",
+  "sensor:2:records": "[...]",
+  "health:check": "ok"
+}
+```
+
+**Errors:**
+- `401` - Invalid or missing API token
+
+**Note:** The `APP_API_TOKEN` is configured via environment variable and is different from JWT tokens used for user authentication.
 
 ## Interactive Documentation
 

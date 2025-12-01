@@ -10,5 +10,5 @@ health_router = APIRouter(
     prefix="/health",
 )
 
-api_router.include_router(v1_endpoints.router, prefix="/v1.0", tags=["v1.0"])
-health_router.include_router(health_check_endpoints.router,  tags=["health"])
+api_router.include_router(v1_endpoints.router, prefix="/v1.0")
+health_router.include_router(health_check_endpoints.router, tags=["health"])

@@ -8,18 +8,18 @@ FastAPI application for managing IoT sensor data with JWT authentication and mul
 - Admin-only user creation (no public registration)
 - Multi-user system with sensor ownership
 - Sensor and data logging management
+- Redis caching for fast sensor reads (with DB persistence)
 - Rate limiting (30 req/min)
 - PostgreSQL with async SQLModel
 - Alembic migrations
 - Admin panel for user management
-- CLI tool for user operations
 
 ## Tech Stack
 
 - **Framework**: FastAPI
 - **Database**: PostgreSQL 13+ with SQLModel
+- **Cache**: Redis (for sensor data caching)
 - **Auth**: PyJWT with bcrypt password hashing
-- **Cache**: Redis (optional, for rate limiting)
 - **Migrations**: Alembic
 - **Python**: 3.12+
 
@@ -52,26 +52,23 @@ Access API docs at http://localhost:8000/docs
 
 ## User Management
 
-Users are created by administrators only (no public registration).
+Users are created and managed by administrators through the web-based admin panel.
 
-### Create User
+### Access Admin Panel
 
-```bash
-# Interactive (prompts for password)
-python manage_users.py create username email@example.com
+Navigate to the admin panel URL (configured via `ADMIN_URL` environment variable):
 
-# With password
-python manage_users.py create username email@example.com --password SecurePass123
-
-# List users
-python manage_users.py list
-
-# Deactivate/activate
-python manage_users.py deactivate username
-python manage_users.py activate username
+```
+http://localhost:8000/<ADMIN_URL>
 ```
 
-### User Login
+From the admin panel you can:
+- Create new users
+- View all users
+- Activate/deactivate users
+- Manage sensors and records
+
+### User Login (API)
 
 ```bash
 curl -X POST "http://localhost:8000/api/v1.0/auth/login" \
@@ -96,7 +93,6 @@ sensors/
 │   └── admin/admin.py       # Admin panel
 ├── alembic/                 # Migrations
 ├── tests/                   # Test suite
-├── manage_users.py          # User management CLI
 └── docker-compose.yml       # Docker setup
 ```
 
@@ -116,7 +112,7 @@ JWT_SECRET_KEY=<32-byte-secret>
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
 JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
 
-# Redis (optional)
+# Redis (required for caching)
 REDIS_CACHE_HOST=localhost
 REDIS_CACHE_PORT=6379
 ```

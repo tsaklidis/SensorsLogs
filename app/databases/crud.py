@@ -45,14 +45,34 @@ class CrudService:
         return user
 
     async def authenticate_user(self, username: str, password: str) -> User | None:
-        """Authenticate a user by username and password."""
+        """
+        Authenticate a user by username and password.
+
+        SECURITY: Uses constant-time comparison to prevent timing attacks
+        that could be used to enumerate valid usernames.
+        """
+        import bcrypt
+
         user = await self.get_user_by_username(username)
-        if not user:
+
+        # SECURITY: Always verify password even if user doesn't exist
+        # This prevents timing attacks that reveal valid usernames
+        if user:
+            password_valid = user.verify_password(password)
+        else:
+            # Perform fake hash verification to maintain constant time
+            # This makes invalid username attempts take the same time as valid ones
+            fake_hash = bcrypt.hashpw(b"dummy_password", bcrypt.gensalt()).decode('utf-8')
+            try:
+                bcrypt.checkpw(password.encode('utf-8')[:72], fake_hash.encode('utf-8'))
+            except Exception:
+                pass
+            password_valid = False
+
+        # Only return user if all checks pass
+        if not user or not password_valid or not user.is_active:
             return None
-        if not user.verify_password(password):
-            return None
-        if not user.is_active:
-            return None
+
         return user
 
     async def update_user_last_login(self, user_id: int) -> User | None:

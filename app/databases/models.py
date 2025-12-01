@@ -23,7 +23,12 @@ class User(SQLModel, table=True):
         return f"User(id={self.id}, username={self.username})"
 
     def verify_password(self, password: str) -> bool:
-        """Verify a password against the hash."""
+        """
+        Verify a password against the hash.
+
+        SECURITY: Bcrypt automatically truncates passwords to 72 bytes.
+        This is handled in the UserCreate validator.
+        """
         # Truncate password to 72 bytes for bcrypt
         password_bytes = password.encode('utf-8')[:72]
         # Bcrypt expects bytes for both password and hash
@@ -31,7 +36,12 @@ class User(SQLModel, table=True):
 
     @staticmethod
     def hash_password(password: str) -> str:
-        """Hash a password for storing. Returns string hash."""
+        """
+        Hash a password for storing. Returns string hash.
+
+        SECURITY: Bcrypt automatically truncates passwords to 72 bytes.
+        Password validation should be done before calling this method.
+        """
         # Truncate password to 72 bytes for bcrypt
         password_bytes = password.encode('utf-8')[:72]
         # Generate salt and hash

@@ -46,10 +46,34 @@ class EnvSettings(BaseSettings):
     APP_API_TOKEN: str = os.getenv("APP_API_TOKEN", secrets.token_urlsafe(32))
     ADMIN_URL: str = os.getenv("ADMIN_URL", secrets.token_urlsafe(32))
 
-    # JWT Settings
-    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", secrets.token_urlsafe(32))
+    # JWT Settings - SECURITY: No random defaults!
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "")
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", 30))
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.getenv("JWT_REFRESH_TOKEN_EXPIRE_DAYS", 7))
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        # SECURITY: Validate critical settings
+        if not self.JWT_SECRET_KEY:
+            raise ValueError(
+                "SECURITY ERROR: JWT_SECRET_KEY must be set in environment variables!\n"
+                "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(32))\"\n"
+                "Add it to your .env file: JWT_SECRET_KEY=<generated_key>"
+            )
+
+        if len(self.JWT_SECRET_KEY) < 32:
+            raise ValueError(
+                "SECURITY ERROR: JWT_SECRET_KEY must be at least 32 characters long for adequate security!"
+            )
+
+        # Warn about weak admin URL
+        if self.ADMIN_URL in ['admin', '/admin', 'admin-panel', '/admin-panel']:
+            import warnings
+            warnings.warn(
+                "SECURITY WARNING: ADMIN_URL is easily guessable! "
+                "Use a random string: python -c \"import secrets; print('/admin-' + secrets.token_urlsafe(16))\""
+            )
 
 settings = EnvSettings()

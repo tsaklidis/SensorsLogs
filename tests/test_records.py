@@ -267,17 +267,6 @@ class TestListRecords:
 class TestRecordPermissions:
     """Tests for record permission handling."""
 
-    async def test_sensor_without_owner_accessible(
-        self,
-        client: AsyncClient,
-        test_db_session,
-        auth_headers: dict
-    ):
-        """Test that sensors without owner are accessible to all users."""
-        # This would require creating a sensor without owner via direct DB access
-        # For now, we skip this test as normal API doesn't allow creating ownerless sensors
-        pytest.skip("Sensors are always assigned to creator via API")
-
     async def test_deleted_sensor_records_inaccessible(
         self,
         client: AsyncClient,
