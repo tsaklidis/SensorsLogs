@@ -1,8 +1,11 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
+import bcrypt
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
+
+from app.core.config import settings
 from app.databases.models import Sensor, SensorRecord, User
 from app.databases.serializers import SensorRecordCreate, UserCreate, SensorCreate
 
@@ -48,12 +51,25 @@ class CrudService:
         """
         Authenticate a user by username and password.
 
-        SECURITY: Uses constant-time comparison to prevent timing attacks
-        that could be used to enumerate valid usernames.
+        SECURITY:
+        - Uses constant-time comparison to prevent timing attacks
+        - Checks account lockout status to prevent brute force
+
+        Returns None if:
+        - User doesn't exist
+        - Password is incorrect
+        - User is not active
+        - Account is locked due to failed attempts
         """
-        import bcrypt
 
         user = await self.get_user_by_username(username)
+
+        # SECURITY: Check if account is locked
+        if user and user.is_locked():
+            logger.warning(f"Login attempt on locked account: username={username}")
+            # Still perform password verification for timing consistency
+            user.verify_password(password)
+            return None
 
         # SECURITY: Always verify password even if user doesn't exist
         # This prevents timing attacks that reveal valid usernames
@@ -83,6 +99,65 @@ class CrudService:
             await self.session.commit()
             await self.session.refresh(user)
         return user
+
+    async def record_failed_login(self, username: str) -> None:
+        """
+        Record a failed login attempt and lock account if threshold exceeded.
+
+        SECURITY: Prevents brute force attacks by locking accounts after
+        multiple failed attempts.
+        """
+
+        user = await self.get_user_by_username(username)
+        if not user:
+            # Don't reveal if username exists - timing attack protection
+            return
+
+        now = datetime.now(timezone.utc)
+
+        # Check if we should reset the counter (no failures for a while)
+        if user.last_failed_login:
+            last_failed_aware = user.last_failed_login.replace(tzinfo=timezone.utc) if user.last_failed_login.tzinfo is None else user.last_failed_login
+            time_since_last_failure = (now - last_failed_aware).total_seconds() / 60
+
+            if time_since_last_failure > settings.FAILED_ATTEMPTS_RESET_MINUTES:
+                # Reset counter if enough time has passed
+                user.failed_login_attempts = 0
+
+        # Increment failed attempts
+        user.failed_login_attempts += 1
+        user.last_failed_login = now
+
+        # Lock account if threshold exceeded
+        if user.failed_login_attempts >= settings.MAX_LOGIN_ATTEMPTS:
+            user.locked_until = now + timedelta(minutes=settings.LOCKOUT_DURATION_MINUTES)
+            logger.warning(
+                f"Account locked due to {user.failed_login_attempts} failed login attempts: "
+                f"username={user.username}, locked_until={user.locked_until}"
+            )
+        else:
+            logger.info(
+                f"Failed login attempt {user.failed_login_attempts}/{settings.MAX_LOGIN_ATTEMPTS}: "
+                f"username={user.username}"
+            )
+
+        await self.session.commit()
+        await self.session.refresh(user)
+
+    async def reset_failed_login_attempts(self, user_id: int) -> None:
+        """
+        Reset failed login attempts counter after successful login.
+
+        SECURITY: Clears lockout state on successful authentication.
+        """
+        user = await self.get_user_by_id(user_id)
+        if user:
+            user.failed_login_attempts = 0
+            user.locked_until = None
+            user.last_failed_login = None
+            await self.session.commit()
+            await self.session.refresh(user)
+            logger.info(f"Reset failed login attempts for user: {user.username}")
 
     # Sensor methods
     async def get_sensor_by_id(self, sensor_id: int) -> Sensor | None:

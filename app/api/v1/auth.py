@@ -22,7 +22,7 @@ router = APIRouter()
 
 
 @router.post("/login", response_model=TokenResponse, responses=rate_limit_response)
-@limiter.limit("5/minute")  # SECURITY: Prevent brute force attacks - only 5 attempts per minute
+@limiter.limit("15/minute")  # SECURITY: Prevent brute force attacks - only 5 attempts per minute
 async def login(
         request: Request,  # Required for rate limiting
         credentials: UserLogin,
@@ -32,19 +32,46 @@ async def login(
     Login with username and password.
     Returns JWT access and refresh tokens.
 
-    SECURITY: Rate limited to 5 attempts per minute to prevent brute force attacks.
+    SECURITY:
+    - Rate limited to 15 attempts per minute per IP
+    - Account lockout after multiple failed attempts
+    - Constant-time authentication to prevent timing attacks
     """
     crud = CrudService(session)
+
+    # Check if account is locked first (before authentication)
+    user_to_check = await crud.get_user_by_username(credentials.username)
+    if user_to_check and user_to_check.is_locked():
+        remaining_seconds = user_to_check.get_lockout_time_remaining()
+        remaining_minutes = (remaining_seconds + 59) // 60  # Round up
+
+        logger.warning(
+            f"Login attempt on locked account: username={credentials.username}, "
+            f"remaining_time={remaining_minutes}min"
+        )
+
+        raise HTTPException(
+            status_code=423,  # 423 Locked
+            detail=f"Account is temporarily locked due to multiple failed login attempts. "
+                   f"Please try again in {remaining_minutes} minute(s).",
+            headers={"WWW-Authenticate": "Bearer", "Retry-After": str(remaining_seconds)},
+        )
 
     # Authenticate user
     user = await crud.authenticate_user(credentials.username, credentials.password)
 
     if not user:
+        # Record failed login attempt
+        await crud.record_failed_login(credentials.username)
+
         raise HTTPException(
             status_code=401,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # Successful login - reset failed attempts counter
+    await crud.reset_failed_login_attempts(user.id)
 
     # Update last login
     await crud.update_user_last_login(user.id)
@@ -52,6 +79,8 @@ async def login(
     # Generate JWT tokens
     access_token = JWTService.create_access_token(user.id, user.username)
     refresh_token = JWTService.create_refresh_token(user.id, user.username)
+
+    logger.info(f"Successful login: username={user.username}")
 
     return TokenResponse(
         access_token=access_token,

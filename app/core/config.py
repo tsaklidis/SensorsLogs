@@ -1,5 +1,6 @@
 import os
 import secrets
+import warnings
 from random import random
 
 from dotenv import load_dotenv
@@ -52,6 +53,12 @@ class EnvSettings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", 30))
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.getenv("JWT_REFRESH_TOKEN_EXPIRE_DAYS", 7))
 
+    # SECURITY: Account lockout settings to prevent brute force attacks
+    MAX_LOGIN_ATTEMPTS: int = int(os.getenv("MAX_LOGIN_ATTEMPTS", 5))
+    LOCKOUT_DURATION_MINUTES: int = int(os.getenv("LOCKOUT_DURATION_MINUTES", 15))
+    # Reset failed attempts counter after this many minutes of no failures
+    FAILED_ATTEMPTS_RESET_MINUTES: int = int(os.getenv("FAILED_ATTEMPTS_RESET_MINUTES", 60))
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -70,7 +77,6 @@ class EnvSettings(BaseSettings):
 
         # Warn about weak admin URL
         if self.ADMIN_URL in ['admin', '/admin', 'admin-panel', '/admin-panel']:
-            import warnings
             warnings.warn(
                 "SECURITY WARNING: ADMIN_URL is easily guessable! "
                 "Use a random string: python -c \"import secrets; print('/admin-' + secrets.token_urlsafe(16))\""

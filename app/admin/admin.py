@@ -1,16 +1,132 @@
 from sqladmin import ModelView
+from sqladmin.authentication import AuthenticationBackend
+from starlette.requests import Request
+from starlette.responses import RedirectResponse
 from wtforms import PasswordField
 from wtforms.validators import Optional as OptionalValidator
 
 from app.databases.models import Sensor, SensorRecord, User
 from app.core.jwt_service import JWTService
 from app.core.config import settings
+from app.databases.manager import AsyncDatabaseManager
+from app.databases.crud import CrudService
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class AdminAuth(AuthenticationBackend):
+    """
+    SECURITY: Authentication backend for SQLAdmin panel.
+    Requires users to login with valid credentials before accessing admin interface.
+    """
+
+    async def login(self, request: Request) -> bool:
+        """
+        Handle admin login.
+
+        SECURITY: Only users with is_admin=True can access admin panel.
+
+        Args:
+            request: The incoming request with form data
+
+        Returns:
+            True if authentication successful, False otherwise
+        """
+        form = await request.form()
+        username = form.get("username")
+        password = form.get("password")
+
+        if not username or not password:
+            return False
+
+        # Get database session
+        db_manager = AsyncDatabaseManager()
+        sessionmaker = db_manager.get_sessionmaker()
+
+        async with sessionmaker() as session:
+            crud = CrudService(session)
+
+            # Authenticate user
+            user = await crud.authenticate_user(username, password)
+
+            # SECURITY: Check if user is active AND is an admin
+            if user and user.is_active and user.is_admin:
+                # Store user information in session
+                request.session.update({
+                    "user_id": user.id,
+                    "username": user.username,
+                    "is_admin": True,
+                    "authenticated": True
+                })
+
+                logger.info(f"Admin login successful: {username}")
+                return True
+            else:
+                # Log the reason for failure (without exposing to user)
+                if user and not user.is_admin:
+                    logger.warning(f"Admin login denied - not admin: {username}")
+                else:
+                    logger.warning(f"Admin login failed: {username}")
+                return False
+
+    async def logout(self, request: Request) -> bool:
+        """
+        Handle admin logout.
+
+        Args:
+            request: The incoming request
+
+        Returns:
+            True always (logout successful)
+        """
+        username = request.session.get("username", "unknown")
+        request.session.clear()
+        logger.info(f"Admin logout: {username}")
+        return True
+
+    async def authenticate(self, request: Request) -> bool:
+        """
+        Check if user is authenticated for accessing admin panel.
+
+        SECURITY: Validates user is active AND has admin privileges.
+
+        Args:
+            request: The incoming request
+
+        Returns:
+            True if authenticated as admin, False otherwise
+        """
+        user_id = request.session.get("user_id")
+        is_admin = request.session.get("is_admin", False)
+        authenticated = request.session.get("authenticated", False)
+
+        if not user_id or not authenticated or not is_admin:
+            return False
+
+        # Verify user still exists, is active, and is admin
+        db_manager = AsyncDatabaseManager()
+        sessionmaker = db_manager.get_sessionmaker()
+
+        async with sessionmaker() as session:
+            crud = CrudService(session)
+            user = await crud.get_user_by_id(user_id)
+
+            # SECURITY: Check user exists, is active, AND is admin
+            if user and user.is_active and user.is_admin:
+                return True
+            else:
+                # User no longer exists, is inactive, or is no longer admin - clear session
+                if user and not user.is_admin:
+                    logger.warning(f"Admin access revoked - admin privilege removed: {user.username}")
+                request.session.clear()
+                return False
 
 
 class UserAdmin(ModelView, model=User):
-    column_list = [User.id, User.username, User.email, User.full_name, User.is_active, User.created_at]
+    column_list = [User.id, User.username, User.email, User.full_name, User.is_active, User.is_admin, User.created_at]
     column_searchable_list = [User.username, User.email]
-    column_sortable_list = [User.id, User.username, User.email, User.created_at]
+    column_sortable_list = [User.id, User.username, User.email, User.is_admin, User.created_at]
     column_default_sort = ("id", True)
     column_details_exclude_list = [User.hashed_password]
     form_excluded_columns = [User.hashed_password, User.created_at, User.updated_at, User.sensors]

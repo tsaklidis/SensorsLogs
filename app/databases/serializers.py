@@ -10,6 +10,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: constr(min_length=12)  # SECURITY: Increased from 8 to 12 characters minimum
     full_name: Optional[str] = None
+    is_admin: bool = False  # Default to non-admin for safety
 
     @field_validator('password')
     @classmethod
@@ -38,6 +39,7 @@ class UserRead(BaseModel):
     email: str
     full_name: Optional[str] = None
     is_active: bool
+    is_admin: bool
     created_at: datetime
 
     class Config:

@@ -1,8 +1,8 @@
 from typing import Optional, List
-from datetime import datetime
-from sqlmodel import SQLModel, Field, Relationship
-from sqlalchemy.orm import relationship
+from datetime import datetime, timezone
+
 import bcrypt
+from sqlmodel import SQLModel, Field, Relationship
 
 
 class User(SQLModel, table=True):
@@ -13,8 +13,14 @@ class User(SQLModel, table=True):
     full_name: Optional[str] = Field(default=None, max_length=255)
     hashed_password: str = Field(nullable=False, max_length=255)
     is_active: bool = Field(default=True, nullable=False)
+    is_admin: bool = Field(default=False, nullable=False)
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+
+    # SECURITY: Account lockout fields to prevent brute force attacks
+    failed_login_attempts: int = Field(default=0, nullable=False)
+    locked_until: Optional[datetime] = Field(default=None, nullable=True)
+    last_failed_login: Optional[datetime] = Field(default=None, nullable=True)
 
     # Relationships
     sensors: List["Sensor"] = Relationship(back_populates="owner")
@@ -49,6 +55,35 @@ class User(SQLModel, table=True):
         hashed = bcrypt.hashpw(password_bytes, salt)
         # Return as string for database storage
         return hashed.decode('utf-8')
+
+    def is_locked(self) -> bool:
+        """
+        Check if account is currently locked due to failed login attempts.
+
+        SECURITY: Prevents brute force attacks by temporarily locking accounts.
+        """
+        if self.locked_until is None:
+            return False
+
+        # Check if lockout period has expired
+        now = datetime.now(timezone.utc)
+        locked_until_aware = self.locked_until.replace(tzinfo=timezone.utc) if self.locked_until.tzinfo is None else self.locked_until
+
+        return now < locked_until_aware
+
+    def get_lockout_time_remaining(self) -> int:
+        """
+        Get remaining lockout time in seconds.
+        Returns 0 if not locked.
+        """
+        if not self.is_locked():
+            return 0
+
+        now = datetime.now(timezone.utc)
+        locked_until_aware = self.locked_until.replace(tzinfo=timezone.utc) if self.locked_until.tzinfo is None else self.locked_until
+
+        remaining = (locked_until_aware - now).total_seconds()
+        return max(0, int(remaining))
 
 
 class Sensor(SQLModel, table=True):
