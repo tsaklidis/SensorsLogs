@@ -2,17 +2,22 @@
 Pytest configuration and shared fixtures for testing.
 """
 import asyncio
+import os
+
 import pytest
-from typing import AsyncGenerator, Generator
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import StaticPool
-import os
+from typing import AsyncGenerator, Generator
 
 from app.main import app
 from app.databases.models import SQLModel, User, Sensor, SensorRecord
 from app.databases.manager import get_db
+from app.databases.crud import CrudService
+from app.databases.serializers import UserCreate
 from app.core.config import settings
+from app.core.jwt_service import JWTService
+from app.core.rate_limit import limiter
 
 
 # Use separate database for each worker when running in parallel
@@ -46,8 +51,6 @@ async def test_db_engine():
         connect_args={"check_same_thread": False},
     )
 
-    # Import all models to ensure they're registered
-    from app.databases.models import User, Sensor, SensorRecord
 
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
@@ -72,26 +75,29 @@ async def test_db_session(test_db_engine) -> AsyncGenerator[AsyncSession, None]:
 
 @pytest.fixture(scope="function")
 async def client(test_db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
-    """Create a test client with database session override."""
+    """Create a test client with database session override and rate limiting disabled."""
 
     async def override_get_db():
         yield test_db_session
 
     app.dependency_overrides[get_db] = override_get_db
 
+    # Disable rate limiting for tests to avoid interference with test logic
+    original_enabled = limiter.enabled
+    limiter.enabled = False
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
 
+    # Restore rate limiting state
+    limiter.enabled = original_enabled
     app.dependency_overrides.clear()
 
 
 @pytest.fixture
 async def test_user(client: AsyncClient, test_db_session: AsyncSession) -> dict:
     """Create a test user directly in database (simulating admin creation)."""
-    from app.databases.crud import CrudService
-    from app.databases.serializers import UserCreate
-    from app.core.jwt_service import JWTService
 
     user_data = UserCreate(
         username="testuser",
@@ -120,9 +126,6 @@ async def test_user(client: AsyncClient, test_db_session: AsyncSession) -> dict:
 @pytest.fixture
 async def test_user2(client: AsyncClient, test_db_session: AsyncSession) -> dict:
     """Create a second test user for multi-user tests."""
-    from app.databases.crud import CrudService
-    from app.databases.serializers import UserCreate
-    from app.core.jwt_service import JWTService
 
     user_data = UserCreate(
         username="testuser2",

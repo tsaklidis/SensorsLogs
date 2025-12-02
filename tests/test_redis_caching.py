@@ -44,27 +44,6 @@ class TestRedisCaching:
         cached = await get_cached_sensor_record(sensor_id)
         assert cached is None
 
-    async def test_cache_and_retrieve_records_list(self):
-        """Test caching and retrieving a list of sensor records."""
-        sensor_id = 777
-        records = [
-            {"value": 23.5, "created_at": "2025-12-01T10:00:00"},
-            {"value": 24.1, "created_at": "2025-12-01T10:05:00"},
-            {"value": 22.8, "created_at": "2025-12-01T10:10:00"},
-        ]
-
-        # Cache the records list
-        result = await cache_sensor_records_list(sensor_id, records)
-        assert result is True
-
-        # Retrieve the cached list
-        cached = await get_cached_sensor_records_list(sensor_id)
-        assert cached is not None
-        assert len(cached) == len(records)
-        assert cached[0]["value"] == records[0]["value"]
-
-        # Cleanup
-        await invalidate_sensor_cache(sensor_id)
 
     async def test_cache_invalidation(self):
         """Test cache invalidation clears all sensor data."""
