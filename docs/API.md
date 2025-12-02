@@ -1,24 +1,34 @@
 # API Reference
 
-Complete endpoint documentation for the Sensors API.
+This guide provides comprehensive documentation for integrating with the Sensors API.
 
-Base URL: `http://localhost:8000/api/v1.0`
+## Base URL
+
+```
+http://localhost:8000/api/v1.0
+```
+
+Replace `localhost:8000` with your production domain when deploying.
 
 ## Authentication
 
-All endpoints except `/auth/login` and `/auth/refresh` require a valid JWT token in the Authorization header:
+All API endpoints (except authentication endpoints) require a valid JWT access token. Include the token in the `Authorization` header:
 
 ```
 Authorization: Bearer <access_token>
 ```
 
-**Note**: Public user registration is disabled. Contact your administrator for account creation.
+**Important**: User registration is disabled. Contact your system administrator to create an account.
+
+---
+
+## Authentication Endpoints
 
 ### POST /auth/login
 
-Authenticate and receive JWT tokens.
+Authenticate with username and password to receive JWT tokens.
 
-**Request:**
+**Request Body:**
 ```json
 {
   "username": "user",
@@ -26,7 +36,7 @@ Authenticate and receive JWT tokens.
 }
 ```
 
-**Response (200):**
+**Success Response (200 OK):**
 ```json
 {
   "access_token": "eyJhbGci...",
@@ -36,21 +46,24 @@ Authenticate and receive JWT tokens.
 }
 ```
 
-**Errors:**
-- `401` - Invalid credentials
+**Error Responses:**
+- `401 Unauthorized` - Invalid credentials
+- `429 Too Many Requests` - Rate limit exceeded (5 attempts/minute)
+
+---
 
 ### POST /auth/refresh
 
-Refresh expired access token.
+Obtain a new access token using a refresh token.
 
-**Request:**
+**Request Body:**
 ```json
 {
   "refresh_token": "eyJhbGci..."
 }
 ```
 
-**Response (200):**
+**Success Response (200 OK):**
 ```json
 {
   "access_token": "eyJhbGci...",
@@ -60,14 +73,21 @@ Refresh expired access token.
 }
 ```
 
-**Errors:**
-- `401` - Invalid or expired refresh token
+**Error Responses:**
+- `401 Unauthorized` - Invalid or expired refresh token
+
+---
 
 ### GET /users/me
 
-Get current authenticated user information.
+Retrieve information about the currently authenticated user.
 
-**Response (200):**
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Success Response (200 OK):**
 ```json
 {
   "id": 1,
@@ -79,16 +99,18 @@ Get current authenticated user information.
 }
 ```
 
-**Errors:**
-- `401` - Invalid or missing token
+**Error Responses:**
+- `401 Unauthorized` - Invalid or missing token
 
-## Sensors
+---
+
+## Sensor Management
 
 ### POST /sensors
 
-Create a new sensor (automatically assigned to authenticated user).
+Register a new sensor. The sensor is automatically assigned to the authenticated user.
 
-**Request:**
+**Request Body:**
 ```json
 {
   "name": "Temperature Sensor",
@@ -96,7 +118,11 @@ Create a new sensor (automatically assigned to authenticated user).
 }
 ```
 
-**Response (201):**
+**Field Requirements:**
+- `name` (string, required): 1-255 characters
+- `location` (string, optional): Up to 255 characters
+
+**Success Response (201 Created):**
 ```json
 {
   "id": 1,
@@ -106,21 +132,18 @@ Create a new sensor (automatically assigned to authenticated user).
 }
 ```
 
-**Fields:**
-- `name` (string, required): 1-255 characters
-- `location` (string, optional): Up to 255 characters
+**Error Responses:**
+- `401 Unauthorized` - Not authenticated
+- `422 Unprocessable Entity` - Validation error
+- `429 Too Many Requests` - Rate limit exceeded (30 requests/minute)
 
-**Errors:**
-- `401` - Not authenticated
-- `422` - Validation error
-
-**Rate Limit:** 30 requests/minute
+---
 
 ### GET /sensors
 
-List all sensors owned by authenticated user.
+List all sensors owned by the authenticated user.
 
-**Response (200):**
+**Success Response (200 OK):**
 ```json
 [
   {
@@ -138,26 +161,33 @@ List all sensors owned by authenticated user.
 ]
 ```
 
-**Errors:**
-- `401` - Not authenticated
+**Error Responses:**
+- `401 Unauthorized` - Not authenticated
+
+---
 
 ### DELETE /sensors/{sensor_id}
 
-Delete a sensor (only owner can delete).
+Delete a sensor. Only the owner can delete their sensors.
 
-**Response (204):** No content
+**Path Parameters:**
+- `sensor_id` (integer): ID of the sensor to delete
 
-**Errors:**
-- `401` - Not authenticated
-- `404` - Sensor not found or permission denied
+**Success Response (204 No Content)**
 
-## Sensor Records
+**Error Responses:**
+- `401 Unauthorized` - Not authenticated
+- `404 Not Found` - Sensor not found or permission denied
+
+---
+
+## Sensor Data Recording
 
 ### POST /records
 
-Add a measurement to a sensor. Value is cached in Redis for fast retrieval and saved to PostgreSQL in the background.
+Submit a sensor measurement. The value is immediately cached in Redis for fast retrieval and persisted to PostgreSQL asynchronously.
 
-**Request:**
+**Request Body:**
 ```json
 {
   "sensor_id": 1,
@@ -165,7 +195,11 @@ Add a measurement to a sensor. Value is cached in Redis for fast retrieval and s
 }
 ```
 
-**Response (201):**
+**Field Requirements:**
+- `sensor_id` (integer, required): Valid sensor ID owned by the user
+- `value` (float, required): Measurement value
+
+**Success Response (201 Created):**
 ```json
 {
   "value": 23.5,
@@ -173,24 +207,26 @@ Add a measurement to a sensor. Value is cached in Redis for fast retrieval and s
 }
 ```
 
-**Performance**: Returns immediately after caching (< 10ms). Database write happens in background.
+**Performance Notes:**
+- Response time: < 10ms (writes to cache, database write is asynchronous)
+- Cache invalidation: Automatic on new records
 
-**Fields:**
-- `sensor_id` (integer, required): Valid sensor ID
-- `value` (float, required): Measurement value
+**Error Responses:**
+- `401 Unauthorized` - Not authenticated
+- `403 Forbidden` - Not the sensor owner
+- `404 Not Found` - Sensor not found
+- `429 Too Many Requests` - Rate limit exceeded (30 requests/minute)
 
-**Errors:**
-- `401` - Not authenticated
-- `403` - Not sensor owner
-- `404` - Sensor not found
-
-**Rate Limit:** 30 requests/minute
+---
 
 ### GET /records/{sensor_id}
 
-Get all records for a sensor. Results are cached for 5 minutes.
+Retrieve all measurements for a sensor. Results are cached for 5 minutes.
 
-**Response (200):**
+**Path Parameters:**
+- `sensor_id` (integer): ID of the sensor
+
+**Success Response (200 OK):**
 ```json
 [
   {
@@ -206,85 +242,99 @@ Get all records for a sensor. Results are cached for 5 minutes.
 
 Records are returned in chronological order.
 
-**Performance**: 
+**Performance:**
 - Cache hit: < 5ms
 - Cache miss: ~50ms (queries database and caches result)
 - Cache TTL: 5 minutes
 
-**Errors:**
-- `401` - Not authenticated
-- `403` - Not sensor owner
-- `404` - Sensor not found
+**Error Responses:**
+- `401 Unauthorized` - Not authenticated
+- `403 Forbidden` - Not the sensor owner
+- `404 Not Found` - Sensor not found
 
-## Usage Examples
+---
+
+## Integration Examples
 
 ### Python
 
 ```python
 import requests
 
-# Login
+BASE_URL = "http://localhost:8000/api/v1.0"
+
+# Authenticate
 response = requests.post(
-    "http://localhost:8000/api/v1.0/auth/login",
+    f"{BASE_URL}/auth/login",
     json={"username": "user", "password": "pass"}
 )
 token = response.json()["access_token"]
 
 headers = {"Authorization": f"Bearer {token}"}
 
-# Create sensor
+# Register a sensor
 sensor = requests.post(
-    "http://localhost:8000/api/v1.0/sensors",
+    f"{BASE_URL}/sensors",
     headers=headers,
     json={"name": "Temp Sensor", "location": "Office"}
 ).json()
 
-# Add measurement
+sensor_id = sensor["id"]
+
+# Submit a measurement
 requests.post(
-    "http://localhost:8000/api/v1.0/records",
+    f"{BASE_URL}/records",
     headers=headers,
-    json={"sensor_id": sensor["id"], "value": 23.5}
+    json={"sensor_id": sensor_id, "value": 23.5}
 )
 
-# Get measurements
+# Retrieve all measurements
 records = requests.get(
-    f"http://localhost:8000/api/v1.0/records/{sensor['id']}",
+    f"{BASE_URL}/records/{sensor_id}",
     headers=headers
 ).json()
+
+print(f"Retrieved {len(records)} measurements")
 ```
+
+---
 
 ### cURL
 
 ```bash
-# Login
-TOKEN=$(curl -X POST "http://localhost:8000/api/v1.0/auth/login" \
+# Authenticate and store token
+TOKEN=$(curl -s -X POST "http://localhost:8000/api/v1.0/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"username": "user", "password": "pass"}' \
   | jq -r '.access_token')
 
-# Create sensor
-SENSOR_ID=$(curl -X POST "http://localhost:8000/api/v1.0/sensors" \
+# Register a sensor
+SENSOR_ID=$(curl -s -X POST "http://localhost:8000/api/v1.0/sensors" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"name": "Temp Sensor", "location": "Office"}' \
   | jq -r '.id')
 
-# Add measurement
+# Submit a measurement
 curl -X POST "http://localhost:8000/api/v1.0/records" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"sensor_id\": $SENSOR_ID, \"value\": 23.5}"
 
-# Get measurements
+# Retrieve measurements
 curl -X GET "http://localhost:8000/api/v1.0/records/$SENSOR_ID" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
+---
+
 ### JavaScript
 
 ```javascript
-// Login
-const loginRes = await fetch('http://localhost:8000/api/v1.0/auth/login', {
+const BASE_URL = 'http://localhost:8000/api/v1.0';
+
+// Authenticate
+const loginRes = await fetch(`${BASE_URL}/auth/login`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ username: 'user', password: 'pass' })
@@ -296,32 +346,33 @@ const headers = {
   'Content-Type': 'application/json'
 };
 
-// Create sensor
-const sensorRes = await fetch('http://localhost:8000/api/v1.0/sensors', {
+// Register a sensor
+const sensorRes = await fetch(`${BASE_URL}/sensors`, {
   method: 'POST',
   headers,
   body: JSON.stringify({ name: 'Temp Sensor', location: 'Office' })
 });
 const sensor = await sensorRes.json();
 
-// Add measurement
-await fetch('http://localhost:8000/api/v1.0/records', {
+// Submit a measurement
+await fetch(`${BASE_URL}/records`, {
   method: 'POST',
   headers,
   body: JSON.stringify({ sensor_id: sensor.id, value: 23.5 })
 });
 
-// Get measurements
-const recordsRes = await fetch(
-  `http://localhost:8000/api/v1.0/records/${sensor.id}`,
-  { headers }
-);
+// Retrieve measurements
+const recordsRes = await fetch(`${BASE_URL}/records/${sensor.id}`, { headers });
 const records = await recordsRes.json();
+
+console.log(`Retrieved ${records.length} measurements`);
 ```
 
-## Error Responses
+---
 
-All errors return a JSON response:
+## Error Handling
+
+All error responses follow a consistent JSON format:
 
 ```json
 {
@@ -329,50 +380,64 @@ All errors return a JSON response:
 }
 ```
 
-### Common Status Codes
+### HTTP Status Codes
 
-- `200` - Success
-- `201` - Created
-- `204` - No Content (successful deletion)
-- `400` - Bad Request
-- `401` - Unauthorized (invalid/missing token)
-- `403` - Forbidden (insufficient permissions)
-- `404` - Not Found
-- `422` - Validation Error
-- `429` - Rate Limit Exceeded
+| Code | Meaning | Description |
+|------|---------|-------------|
+| 200 | OK | Request succeeded |
+| 201 | Created | Resource created successfully |
+| 204 | No Content | Request succeeded, no content to return |
+| 400 | Bad Request | Invalid request format |
+| 401 | Unauthorized | Authentication required or invalid token |
+| 403 | Forbidden | Insufficient permissions |
+| 404 | Not Found | Resource not found |
+| 422 | Unprocessable Entity | Validation error |
+| 429 | Too Many Requests | Rate limit exceeded |
+| 500 | Internal Server Error | Server error |
 
-## Rate Limiting
+### Rate Limiting
 
-Endpoints marked with rate limiting allow 30 requests per minute per IP address. Exceeded limits return `429 Too Many Requests`.
+Most endpoints enforce rate limits to prevent abuse:
+
+- **Authentication endpoints**: 5 requests/minute
+- **Sensor operations**: 30 requests/minute
+- **Record operations**: 30 requests/minute
+- **Health checks**: 10-30 requests/minute
+
+When rate limits are exceeded, the API returns `429 Too Many Requests`.
+
+---
 
 ## Health Check Endpoints
 
-These endpoints require an API token for authentication (not JWT). Used for infrastructure monitoring.
+Health check endpoints use a separate authentication mechanism with an API token (not JWT). These are intended for infrastructure monitoring.
 
 **Authentication Header:**
 ```
 api-token: <APP_API_TOKEN>
 ```
 
+The `APP_API_TOKEN` is configured via environment variable and is different from JWT tokens used for user authentication.
+
 ### GET /health/psql
 
-Check PostgreSQL connectivity.
+Check PostgreSQL database connectivity.
 
-**Response (200):**
+**Success Response (200 OK):**
 ```json
 {
   "healthy": true
 }
 ```
 
-**Errors:**
-- `401` - Invalid or missing API token
+**Error Responses:**
+- `401 Unauthorized` - Invalid or missing API token
 
-### GET /health/redis
+---### GET /health/redis
 
-Check Redis connectivity (ping).
+Check Redis connectivity with a ping operation.
 
-**Response (200):**
+**Success Response (200 OK):**
 ```json
 {
   "healthy": true
@@ -387,17 +452,17 @@ Or if unhealthy:
 }
 ```
 
-**Rate Limit:** 30 requests/minute
+**Error Responses:**
+- `401 Unauthorized` - Invalid or missing API token
+- `429 Too Many Requests` - Rate limit exceeded (30 requests/minute)
 
-**Errors:**
-- `401` - Invalid or missing API token
-- `429` - Rate limit exceeded
+---
 
 ### GET /health/redis_rw
 
 Check Redis read/write operations.
 
-**Response (200):**
+**Success Response (200 OK):**
 ```json
 {
   "healthy": true
@@ -412,17 +477,17 @@ Or if unhealthy:
 }
 ```
 
-**Rate Limit:** 10 requests/minute
+**Error Responses:**
+- `401 Unauthorized` - Invalid or missing API token
+- `429 Too Many Requests` - Rate limit exceeded (10 requests/minute)
 
-**Errors:**
-- `401` - Invalid or missing API token
-- `429` - Rate limit exceeded
+---
 
 ### GET /health/redis_data
 
-List all key-value pairs in Redis (debugging).
+List all key-value pairs in Redis (for debugging purposes).
 
-**Response (200):**
+**Success Response (200 OK):**
 ```json
 {
   "sensor:1:records": "[...]",
@@ -431,13 +496,16 @@ List all key-value pairs in Redis (debugging).
 }
 ```
 
-**Errors:**
-- `401` - Invalid or missing API token
+**Error Responses:**
+- `401 Unauthorized` - Invalid or missing API token
 
-**Note:** The `APP_API_TOKEN` is configured via environment variable and is different from JWT tokens used for user authentication.
+---
 
 ## Interactive Documentation
 
-Swagger UI: http://localhost:8000/docs
-ReDoc: http://localhost:8000/redoc
+FastAPI provides automatic interactive API documentation:
 
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+
+These interfaces allow you to test API endpoints directly from your browser.
